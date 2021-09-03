@@ -17,16 +17,19 @@
         image: <an image from the show data, or a default imege if no image exists, (image isn't needed until later)>
       }
  */
-async function searchShows(query) {
-  // TODO: Make an ajax request to the searchShows api.  Remove
-  // hard coded data.
+async function searchShows(q) {
+  const res = await axios.get('https://api.tvmaze.com/singlesearch/shows', { params: { q } });
+  const id = res.data.id;
+  const showName = res.data.name;
+  const summary = res.data.summary;
+  const image = res.data.image.medium;
 
   return [
     {
-      id: 1767,
-      name: "The Bletchley Circle",
-      summary: "<p><b>The Bletchley Circle</b> follows the journey of four ordinary women with extraordinary skills that helped to end World War II.</p><p>Set in 1952, Susan, Millie, Lucy and Jean have returned to their normal lives, modestly setting aside the part they played in producing crucial intelligence, which helped the Allies to victory and shortened the war. When Susan discovers a hidden code behind an unsolved murder she is met by skepticism from the police. She quickly realises she can only begin to crack the murders and bring the culprit to justice with her former friends.</p>",
-      image: "http://static.tvmaze.com/uploads/images/medium_portrait/147/369403.jpg"
+      id,
+      showName,
+      summary,
+      image,
     }
   ]
 }
@@ -46,13 +49,16 @@ function populateShows(shows) {
       `<div class="col-md-6 col-lg-3 Show" data-show-id="${show.id}">
          <div class="card" data-show-id="${show.id}">
            <div class="card-body">
-             <h5 class="card-title">${show.name}</h5>
+             <h5 class="card-title">${show.showName}</h5>
+             <img class="card-img" src="${show.image}" alt="Show Image">
              <p class="card-text">${show.summary}</p>
+             <button id="card-button">Show Episodes</button>
            </div>
          </div>
        </div>
       `);
-
+    //Use JQuery to store the id of the show associated with the card
+    $("div").data("show", { id: show.id });
     $showsList.append($item);
   }
 }
@@ -63,7 +69,7 @@ function populateShows(shows) {
  *    - get list of matching shows and show in shows list
  */
 
-$("#search-form").on("submit", async function handleSearch (evt) {
+$("#search-form").on("submit", async function handleSearch(evt) {
   evt.preventDefault();
 
   let query = $("#search-query").val();
@@ -82,9 +88,37 @@ $("#search-form").on("submit", async function handleSearch (evt) {
  */
 
 async function getEpisodes(id) {
-  // TODO: get episodes from tvmaze
-  //       you can get this by making GET request to
-  //       http://api.tvmaze.com/shows/SHOW-ID-HERE/episodes
-
-  // TODO: return array-of-episode-info, as described in docstring above
+  const url = (`http://api.tvmaze.com/shows/${id}/episodes`);
+  const res = await axios.get(url);
+  //make episode array
+  let episodes = [];
+  //loop through data and filter out only the name, season and episode number - push those values into the empy episode array per episode
+  for (let i = 0; i < res.data.length; i++) {
+    episodes.push(`${res.data[i].name} (Season: ${res.data[i].season}, Number: ${res.data[i].number})`);
+  }
+  return episodes;
 }
+
+function populateEpisodes(episodes) {
+  //declare episode list
+  const $episodesList = $("#episodes-list");
+  //clear out old values
+  $episodesList.empty();
+  //loop through episode array and create a new li and add the episode info to it, then append the new li to the list
+  for (let episode of episodes) {
+    let $item = $(`<li>${episode}</li>`)
+    $episodesList.append($item);
+  }
+}
+
+document.addEventListener('click', async function (evt) {
+  if (evt.target && evt.target.id == 'card-button') {
+
+    //retrieve the show id from the data we stored in populateShows() and use for id param in getEpisodes(id)
+    let episodes = await getEpisodes($("div").data("show").id);
+
+    $("#episodes-area").show();
+
+    populateEpisodes(episodes);
+  }
+});
